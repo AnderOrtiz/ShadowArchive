@@ -96,7 +96,12 @@ async function push(spec: Spec, uid: string, lastPush: number) {
   const dirty = (await table.filter((r) => (r.updatedAt ?? 0) > lastPush).toArray()) as Row[]
   const out: Row[] = dirty.map((r) => ({ ...spec.toRemote(r), owner_id: uid, updated_at: r.updatedAt, deleted: false }))
   const tombs = await db.tombstones.where('t').equals(spec.local).and((t) => t.ts > lastPush).toArray()
-  for (const t of tombs) out.push({ ...spec.toRemote(t.obj), owner_id: uid, updated_at: t.ts, deleted: true })
+  for (const t of tombs) {
+    // Si la fila se volvió a crear después de borrarla, la lápida ya no vale: subirla pisaría la fila viva.
+    const live = await table.get(spec.keyOfLocal(t.obj) as never)
+    if (live && (live.updatedAt ?? 0) >= t.ts) { await db.tombstones.delete([t.t, t.k]); continue }
+    out.push({ ...spec.toRemote(t.obj), owner_id: uid, updated_at: t.ts, deleted: true })
+  }
   for (let i = 0; i < out.length; i += BATCH) {
     const { error } = await neon.from(spec.remote).upsert(out.slice(i, i + BATCH), { onConflict: spec.conflict })
     if (error) throw new Error(`${spec.remote}: ${error.message}`)
@@ -126,6 +131,11 @@ export async function syncNow(): Promise<void> {
     try {
       const started = Date.now()
       const lastPull = await getMeta<number>(`pull:${uid}`, 0)
+      // Reparación única: tras corregir los errores de sincronización, se vuelve a subir todo lo local.
+      if (!(await getMeta<boolean>(`fix1:${uid}`, false))) {
+        await setMeta(`push:${uid}`, 0)
+        await setMeta(`fix1:${uid}`, true)
+      }
       const lastPush = await getMeta<number>(`push:${uid}`, 0)
       let maxPull = lastPull
       for (const s of SPECS) maxPull = Math.max(maxPull, await pull(s, lastPull))
@@ -158,7 +168,7 @@ export async function wipeLocalUserData() {
     })
     await db.tombstones.clear()
     // No borramos 'catalogVersion': evita volver a descargar el catálogo al cerrar sesión.
-    await db.meta.filter((m) => /^(pull|push):/.test(m.key)).delete()
+    await db.meta.filter((m) => /^(pull|push|fix1):/.test(m.key)).delete()
   })
 }
 

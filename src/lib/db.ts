@@ -133,7 +133,8 @@ export async function moveToSide(dc: DeckCard) {
     const key: [string, number, Zone] = [dc.deckId, dc.cardId, to]
     const ex = await db.deckCards.get(key)
     if (ex) await db.deckCards.update(key, { qty: ex.qty + dc.qty })
-    else await db.deckCards.add({ ...dc, zone: to })
+    // updatedAt nuevo: si conservara el viejo, la fila no se subiría al servidor.
+    else await db.deckCards.add({ ...dc, zone: to, updatedAt: Date.now() })
   })
 }
 

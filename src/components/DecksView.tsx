@@ -67,6 +67,7 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [selected, setSelected] = useState<Card | null>(null)
   const [showStats, setShowStats] = useState(false)
   const [showHand, setShowHand] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   const { filtered, totals, warnings } = useMemo(() => {
     const totals: Record<Zone, number> = { main: 0, extra: 0, side: 0 }
@@ -105,10 +106,25 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
     <div className="mx-auto max-w-3xl px-4 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
       <div className="mb-3 flex items-center justify-between">
         <button onClick={onBack} className="rounded-lg px-2 py-1 text-white/60">← Decks</button>
-        <button onClick={async () => { if (confirm(`¿Eliminar “${deck.name}”?`)) { await deleteDeck(id); onBack() } }} className="rounded-lg px-2 py-1 text-sm text-red-400">Eliminar</button>
+        <div className="flex items-center gap-2">
+          {editing && (
+            <button onClick={async () => { if (confirm(`¿Eliminar “${deck.name}”?`)) { await deleteDeck(id); onBack() } }} className="rounded-lg px-2 py-1 text-sm text-red-400">Eliminar</button>
+          )}
+          <button onClick={() => setEditing((e) => !e)}
+            className={`rounded-full border px-5 py-1.5 text-sm font-semibold tracking-wide transition active:scale-95 ${
+              editing
+                ? 'border-accent bg-accent text-void shadow-[0_0_12px_rgba(242,182,50,0.35)]'
+                : 'border-accent/60 text-accent hover:bg-accent/10'}`}>
+            {editing ? 'Listo' : 'Editar'}
+          </button>
+        </div>
       </div>
-      <input defaultValue={deck.name} onBlur={(e) => db.decks.update(id, { name: e.target.value.trim() || deck.name })}
-        className="mb-2 w-full bg-transparent text-2xl font-bold text-accent outline-none" />
+      {editing ? (
+        <input defaultValue={deck.name} onBlur={(e) => db.decks.update(id, { name: e.target.value.trim() || deck.name })}
+          className="mb-2 w-full rounded-lg border border-edge bg-panel px-3 py-1 text-2xl font-bold text-accent outline-none focus:border-accent" />
+      ) : (
+        <h2 className="mb-2 text-2xl font-bold text-accent">{deck.name}</h2>
+      )}
       <div className="mb-3 flex gap-3 text-sm text-white/60">
         {ZONES.map(([z, l]) => <span key={z}>{l.split(' ')[0]}: <b className="text-white">{totals[z]}</b></span>)}
       </div>
@@ -137,9 +153,23 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
         return (
           <section key={zone} className="mb-4">
             <h3 className="mb-2 text-xs uppercase tracking-widest text-white/40">{label} ({totals[zone]})</h3>
-            <div className="space-y-2">
-              {list.map((r) => <Row key={`${r.cardId}-${r.zone}`} r={r} catalogCard={catalog.byId.get(r.cardId)!} onOpen={setSelected} />)}
-            </div>
+            {editing ? (
+              <div className="space-y-2">
+                {list.map((r) => <Row key={`${r.cardId}-${r.zone}`} r={r} catalogCard={catalog.byId.get(r.cardId)!} onOpen={setSelected} />)}
+              </div>
+            ) : (
+              // Vista: una miniatura por cada copia de la carta.
+              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-8">
+                {list.flatMap((r) => {
+                  const c = catalog.byId.get(r.cardId)!
+                  return Array.from({ length: r.qty }, (_, i) => (
+                    <button key={`${r.cardId}-${r.zone}-${i}`} onClick={() => setSelected(c)} className="overflow-hidden rounded bg-panel active:scale-95">
+                      <img src={c.thumb} alt={c.name} loading="lazy" className="aspect-[59/86] w-full object-cover" />
+                    </button>
+                  ))
+                })}
+              </div>
+            )}
           </section>
         )
       })}

@@ -37,7 +37,16 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
           <>
             <div className="mb-3 flex items-start justify-between gap-2">
               <h2 className="text-lg font-bold">{card.name}</h2>
-              <div className="relative">
+              <div className="relative flex shrink-0 items-center">
+                <button
+                  aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                  aria-pressed={isFav}
+                  onClick={(e) => { e.stopPropagation(); if (user) void toggleList(card.id, 'favorite'); else { onClose(); requestLogin() } }}
+                  className={`rounded-lg px-2 py-1 transition active:scale-90 hover:bg-white/10 ${isFav ? 'text-gold' : 'text-white/40'}`}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3.5l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.5l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3.5Z" />
+                  </svg>
+                </button>
                 <button aria-label="Menú" onClick={(e) => { e.stopPropagation(); setMenu((m) => !m) }} className="rounded-lg px-3 py-1 text-xl hover:bg-white/10">⋮</button>
                 {menu && (
                   <div className="absolute right-0 z-10 w-60 overflow-hidden rounded-xl border border-edge bg-void text-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -46,7 +55,6 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
                     )}
                     {user && <>
                     <button className={item} onClick={() => { setView('decks'); setMenu(false) }}>Agregar / crear deck</button>
-                    <button className={item} onClick={() => { toggleList(card.id, 'favorite'); setMenu(false) }}>{isFav ? '★ Quitar de favoritos' : '☆ Favoritos'}</button>
                     <button className={item} onClick={() => { toggleList(card.id, 'wishlist'); setMenu(false) }}>{isWish ? '🎯 Quitar de deseos' : '🎯 Lista de deseos'}</button>
                     <button className={item} onClick={() => { setView('tags'); setMenu(false) }}>🏷️ Tags</button>
                     </>}
