@@ -14,7 +14,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
   const [newName, setNewName] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
-  const decks = useLiveQuery(() => db.decks.orderBy('createdAt').reverse().toArray(), [])
+  const decks = useLiveQuery(() => db.decks.toArray().then((d) => d.sort((a, b) => b.createdAt - a.createdAt)), [])
   const tags = useLiveQuery(() => db.tags.toArray(), [])
   const myTags = useLiveQuery(() => db.cardTags.where('cardId').equals(card.id).toArray(), [card.id])
   const myLists = useLiveQuery(() => db.lists.where('cardId').equals(card.id).toArray(), [card.id])

@@ -3,7 +3,9 @@ import { useAuth } from '../lib/auth'
 
 /** Muestra el contenido solo con sesión iniciada; si no, el formulario de login. */
 export default function LoginGate({ children, title }: { children: ReactNode; title: string }) {
-  const { user, loading, configured, signIn } = useAuth()
+  const { user, loading, configured, signIn, signUp } = useAuth()
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -21,14 +23,21 @@ export default function LoginGate({ children, title }: { children: ReactNode; ti
       ) : (
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault(); setBusy(true); setError(null)
-          setError(await signIn(email.trim(), password)); setBusy(false)
+          setError(creating ? await signUp(name.trim() || email.split('@')[0], email.trim(), password) : await signIn(email.trim(), password)); setBusy(false)
         }}>
+          {creating && (
+            <input autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre"
+              className="w-full rounded-xl border border-edge bg-panel px-4 py-3 outline-none focus:border-accent" />
+          )}
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo"
             className="w-full rounded-xl border border-edge bg-panel px-4 py-3 outline-none focus:border-accent" />
-          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña"
+          <input type="password" autoComplete={creating ? 'new-password' : 'current-password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña"
             className="w-full rounded-xl border border-edge bg-panel px-4 py-3 outline-none focus:border-accent" />
           {error && <p className="text-sm text-red-400">{error}</p>}
-          <button disabled={busy} className="w-full rounded-xl bg-accent/20 py-3 font-medium text-accent disabled:opacity-50">{busy ? 'Entrando…' : 'Iniciar sesión'}</button>
+          <button disabled={busy} className="w-full rounded-xl bg-accent/20 py-3 font-medium text-accent disabled:opacity-50">{busy ? 'Enviando…' : creating ? 'Crear cuenta' : 'Iniciar sesión'}</button>
+          <button type="button" onClick={() => { setCreating((c) => !c); setError(null) }} className="w-full text-sm text-white/50">
+            {creating ? 'Ya tengo cuenta' : 'Crear cuenta'}
+          </button>
         </form>
       )}
     </div>

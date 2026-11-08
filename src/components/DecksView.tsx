@@ -14,7 +14,7 @@ export default function DecksView() {
 
 function DeckList({ onOpen }: { onOpen: (id: string) => void }) {
   const [name, setName] = useState('')
-  const decks = useLiveQuery(() => db.decks.orderBy('createdAt').reverse().toArray(), [])
+  const decks = useLiveQuery(() => db.decks.toArray().then((d) => d.sort((a, b) => b.createdAt - a.createdAt)), [])
   const counts = useLiveQuery(async () => {
     const all = await db.deckCards.toArray()
     const m = new Map<string, number>()

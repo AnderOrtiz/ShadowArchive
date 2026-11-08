@@ -10,6 +10,7 @@ interface AuthCtx {
   configured: boolean
   sync: SyncState
   signIn: (email: string, password: string) => Promise<string | null>
+  signUp: (name: string, email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
   syncNow: () => Promise<void>
   requestLogin: () => void
@@ -49,6 +50,14 @@ export function AuthProvider({ children, onRequestLogin }: { children: ReactNode
     return null
   }, [refresh])
 
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    if (!neon) return 'Neon no está configurado.'
+    const res = await neon.auth.signUp.email({ name, email, password })
+    if (res.error) return res.error.message ?? 'No se pudo crear la cuenta.'
+    await refresh()
+    return null
+  }, [refresh])
+
   const signOut = useCallback(async () => {
     if (!neon || !user) return
     await syncNow()
@@ -62,8 +71,8 @@ export function AuthProvider({ children, onRequestLogin }: { children: ReactNode
   }, [user])
 
   const value = useMemo<AuthCtx>(
-    () => ({ user, loading, configured: neonConfigured, sync, signIn, signOut, syncNow, requestLogin: onRequestLogin }),
-    [user, loading, sync, signIn, signOut, onRequestLogin],
+    () => ({ user, loading, configured: neonConfigured, sync, signIn, signUp, signOut, syncNow, requestLogin: onRequestLogin }),
+    [user, loading, sync, signIn, signUp, signOut, onRequestLogin],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
