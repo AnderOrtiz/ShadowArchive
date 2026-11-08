@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Card } from '../lib/cards'
 import { useAuth } from '../lib/auth'
-import { addToDeck, createDeck, createTag, db, toggleCardTag, toggleList } from '../lib/db'
+import { addToDeck, createDeck, createTag, db, setNote, toggleCardTag, toggleList } from '../lib/db'
+
+const BAN_LABEL: Record<string, string> = { Banned: '🚫 Prohibida (TCG)', Limited: 'Limitada a 1 (TCG)', 'Semi-Limited': 'Semi-limitada a 2 (TCG)' }
 
 type View = 'card' | 'decks' | 'tags'
 
@@ -18,6 +20,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
   const tags = useLiveQuery(() => db.tags.toArray(), [])
   const myTags = useLiveQuery(() => db.cardTags.where('cardId').equals(card.id).toArray(), [card.id])
   const myLists = useLiveQuery(() => db.lists.where('cardId').equals(card.id).toArray(), [card.id])
+  const note = useLiveQuery(() => db.notes.get(card.id), [card.id])
   const isFav = !!myLists?.some((l) => l.list === 'favorite')
   const isWish = !!myLists?.some((l) => l.list === 'wishlist')
 
@@ -53,6 +56,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
               </div>
             </div>
             <div className="mb-2 flex flex-wrap gap-1 text-xs">
+              {card.ban && <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-red-300">{BAN_LABEL[card.ban] ?? card.ban}</span>}
               {isFav && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-gold">★ Favorita</span>}
               {isWish && <span className="rounded-full bg-accent/20 px-2 py-0.5 text-accent">🎯 Deseo</span>}
               {myTags?.map((ct) => {
@@ -62,11 +66,21 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
             </div>
             <img src={card.img} alt={card.name} className="mx-auto mb-3 w-3/4 rounded-lg" />
             <p className="whitespace-pre-line text-sm leading-relaxed text-white/80">{card.desc}</p>
+            {user && (
+              <div className="mt-4">
+                <label className="mb-1 block text-xs text-white/40">Notas (Markdown)</label>
+                <textarea key={note === undefined ? 'cargando' : 'listo'} defaultValue={note?.text ?? ''} rows={3}
+                  onBlur={(e) => { if (e.target.value !== (note?.text ?? '')) void setNote(card.id, e.target.value) }}
+                  placeholder="Combos, trucos, con qué juega bien…"
+                  className="w-full rounded-lg border border-edge bg-void px-3 py-2 text-sm outline-none focus:border-accent" />
+              </div>
+            )}
             {more && (
               <dl className="mt-4 grid grid-cols-2 gap-2 rounded-lg bg-void p-3 text-sm">
                 {([
                   ['Tipo', card.type], ['Raza', card.race], ['Atributo', card.attribute],
                   ['Arquetipo', card.archetype], ['Nivel', card.level], ['ATK', card.atk], ['DEF', card.def],
+                  ['Precio (TCGplayer)', card.price !== undefined ? `$${card.price.toFixed(2)} USD` : undefined],
                 ] as const).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => (
                   <div key={k}><dt className="text-xs text-white/40">{k}</dt><dd>{v}</dd></div>
                 ))}
@@ -111,7 +125,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
                 return (
                   <button key={t.id} onClick={() => toggleCardTag(card.id, t.id)}
                     className="rounded-full border px-3 py-1 text-sm"
-                    style={on ? { background: t.color, color: '#0b0714', borderColor: t.color } : { borderColor: t.color, color: t.color }}>
+                    style={on ? { background: t.color, color: '#0e0720', borderColor: t.color } : { borderColor: t.color, color: t.color }}>
                     {t.name}
                   </button>
                 )

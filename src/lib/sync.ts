@@ -44,6 +44,12 @@ const SPECS: Spec[] = [
     toRemote: (r) => ({ card_id: r.cardId, list: r.list }),
     toLocal: (x) => ({ cardId: x.card_id, list: x.list }),
   },
+  {
+    local: 'notes', remote: 'card_notes', conflict: 'owner_id,card_id', order: 'card_id',
+    keyOfLocal: (r) => r.cardId, keyOfRemote: (x) => x.card_id,
+    toRemote: (r) => ({ card_id: r.cardId, content: r.text }),
+    toLocal: (x) => ({ cardId: x.card_id, text: x.content }),
+  },
 ]
 
 // Margen para tolerar relojes desfasados entre dispositivos (la comparación LWW hace idempotente el reproceso).
@@ -146,12 +152,13 @@ setOnLocalChange(() => {
 
 /** Borra los datos del usuario del dispositivo (al cerrar sesión). */
 export async function wipeLocalUserData() {
-  await db.transaction('rw', [db.decks, db.deckCards, db.tags, db.cardTags, db.lists, db.tombstones, db.meta], async () => {
+  await db.transaction('rw', [db.decks, db.deckCards, db.tags, db.cardTags, db.lists, db.notes, db.tombstones, db.meta], async () => {
     await runAsRemote(async () => {
       for (const n of SYNCED_TABLES) await db.table(n).clear()
     })
     await db.tombstones.clear()
-    await db.meta.clear()
+    // No borramos 'catalogVersion': evita volver a descargar el catálogo al cerrar sesión.
+    await db.meta.filter((m) => /^(pull|push):/.test(m.key)).delete()
   })
 }
 

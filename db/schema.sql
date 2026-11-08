@@ -51,10 +51,19 @@ create table if not exists lists (
   primary key (owner_id, card_id, list)
 );
 
+create table if not exists card_notes (
+  owner_id text not null default auth.user_id(),
+  card_id integer not null,
+  content text not null,
+  updated_at bigint not null,
+  deleted boolean not null default false,
+  primary key (owner_id, card_id)
+);
+
 do $$
 declare t text;
 begin
-  foreach t in array array['decks','deck_cards','tags','card_tags','lists'] loop
+  foreach t in array array['decks','deck_cards','tags','card_tags','lists','card_notes'] loop
     execute format('alter table %I enable row level security', t);
     execute format('revoke all on %I from anonymous', t);
     execute format('grant select, insert, update, delete on %I to authenticated', t);

@@ -1,17 +1,22 @@
 @import "tailwindcss";
 
+/* Paleta Yugi Muto: cabello morado/magenta, mechones dorados, uniforme azul, puntas rojas y el oro del Puzzle del Milenio. */
 @theme {
-  --color-void: #0b0714;
-  --color-panel: #161027;
-  --color-edge: #2a2145;
-  --color-accent: #a78bfa;
-  --color-gold: #fbbf24;
+  --color-void: #0e0720;
+  --color-panel: #1b1030;
+  --color-edge: #3a2468;
+  --color-accent: #f2b632;
+  --color-gold: #ffd54a;
+  --color-violet: #7c3aed;
+  --color-magenta: #c026d3;
+  --color-uniform: #2563eb;
+  --color-hair: #e11d48;
 }
 
 html, body, #root { height: 100%; }
 body {
-  background: var(--color-void);
-  color: #e7e2f5;
+  background: var(--color-void) radial-gradient(120% 55% at 50% 0%, #2d1257 0%, #0e0720 65%) no-repeat fixed;
+  color: #ece6fa;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
 }

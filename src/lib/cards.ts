@@ -14,6 +14,10 @@ export interface Card {
   level?: number
   img: string
   thumb: string
+  /** Estado en la banlist TCG: 'Banned' | 'Limited' | 'Semi-Limited' */
+  ban?: string
+  /** Precio TCGplayer en USD */
+  price?: number
 }
 
 const API = 'https://db.ygoprodeck.com/api/v7/cardinfo.php'
@@ -23,11 +27,17 @@ interface ApiCard {
   race?: string; attribute?: string; archetype?: string
   atk?: number; def?: number; level?: number
   card_images: { image_url: string; image_url_small: string }[]
+  banlist_info?: { ban_tcg?: string }
+  card_prices?: { tcgplayer_price?: string }[]
 }
 
+// Súbela cuando cambien los campos guardados, para volver a descargar el catálogo.
+const CATALOG_VERSION = 2
+
 export async function loadCatalog(onStatus: (s: string) => void): Promise<Card[]> {
+  const version = (await db.meta.get('catalogVersion'))?.value
   const cached = await db.cards.toArray()
-  if (cached.length > 0) return cached
+  if (cached.length > 0 && version === CATALOG_VERSION) return cached
   onStatus('Descargando catálogo (solo la primera vez)…')
   const res = await fetch(API)
   if (!res.ok) throw new Error(`No se pudo descargar el catálogo (${res.status})`)
@@ -38,8 +48,12 @@ export async function loadCatalog(onStatus: (s: string) => void): Promise<Card[]
     atk: c.atk, def: c.def, level: c.level,
     img: c.card_images[0].image_url,
     thumb: c.card_images[0].image_url_small,
+    // La API llama 'Forbidden' a las prohibidas; lo normalizamos a 'Banned'.
+    ban: c.banlist_info?.ban_tcg === 'Forbidden' ? 'Banned' : c.banlist_info?.ban_tcg,
+    price: Number(c.card_prices?.[0]?.tcgplayer_price) || undefined,
   }))
   await db.cards.bulkPut(cards)
+  await db.meta.put({ key: 'catalogVersion', value: CATALOG_VERSION })
   return cards
 }
 

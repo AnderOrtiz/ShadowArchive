@@ -10,10 +10,11 @@ export interface DeckCard { deckId: string; cardId: number; zone: Zone; qty: num
 export interface Tag { id: string; name: string; color: string; updatedAt?: number }
 export interface CardTag { cardId: number; tagId: string; updatedAt?: number }
 export interface ListEntry { cardId: number; list: ListName; updatedAt?: number }
+export interface Note { cardId: number; text: string; updatedAt?: number }
 export interface Tombstone { t: string; k: string; ts: number; obj: Record<string, unknown> }
 export interface Meta { key: string; value: unknown }
 
-export const SYNCED_TABLES = ['decks', 'deckCards', 'tags', 'cardTags', 'lists'] as const
+export const SYNCED_TABLES = ['decks', 'deckCards', 'tags', 'cardTags', 'lists', 'notes'] as const
 
 export const db = new Dexie('shadow-archive') as Dexie & {
   cards: Dexie.Table<Card, number>
@@ -22,6 +23,7 @@ export const db = new Dexie('shadow-archive') as Dexie & {
   tags: Dexie.Table<Tag, string>
   cardTags: Dexie.Table<CardTag, [number, string]>
   lists: Dexie.Table<ListEntry, [number, ListName]>
+  notes: Dexie.Table<Note, number>
   tombstones: Dexie.Table<Tombstone, [string, string]>
   meta: Dexie.Table<Meta, string>
 }
@@ -49,10 +51,22 @@ db.version(3)
   })
   .upgrade(async (tx) => {
     const now = Date.now()
-    for (const name of SYNCED_TABLES) {
+    for (const name of ['decks', 'deckCards', 'tags', 'cardTags', 'lists']) {
       await tx.table(name).toCollection().modify((r: { updatedAt?: number }) => { r.updatedAt ??= now })
     }
   })
+
+db.version(4).stores({
+  cards: 'id',
+  decks: 'id',
+  deckCards: '[deckId+cardId+zone],deckId',
+  tags: 'id',
+  cardTags: '[cardId+tagId],cardId,tagId',
+  lists: '[cardId+list],list',
+  notes: 'cardId',
+  tombstones: '[t+k]',
+  meta: 'key',
+})
 
 // --- Hooks de sincronización -------------------------------------------------
 // Estampan updatedAt y guardan una "lápida" al borrar, para poder propagar borrados.
@@ -86,7 +100,7 @@ for (const name of SYNCED_TABLES) {
   })
 }
 
-export const TAG_COLORS = ['#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#60a5fa', '#fb923c']
+export const TAG_COLORS = ['#f2b632', '#c026d3', '#7c3aed', '#3b82f6', '#ef4444', '#34d399']
 
 const EXTRA_TYPES = ['Fusion', 'Synchro', 'XYZ', 'Link']
 export const zoneFor = (card: Card): Zone => (EXTRA_TYPES.some((t) => card.type.includes(t)) ? 'extra' : 'main')
@@ -151,6 +165,11 @@ export async function createTag(name: string): Promise<string | null> {
   const count = await db.tags.count()
   await db.tags.add({ id, name: clean, color: TAG_COLORS[count % TAG_COLORS.length] })
   return id
+}
+
+export async function setNote(cardId: number, text: string) {
+  if (text.trim()) await db.notes.put({ cardId, text })
+  else await db.notes.delete(cardId)
 }
 
 export async function deleteTag(id: string) {

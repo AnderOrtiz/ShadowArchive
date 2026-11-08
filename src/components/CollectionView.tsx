@@ -34,7 +34,16 @@ export default function CollectionView() {
       </div>
 
       {sub === 'favorite' && (favs?.length ? <CardGrid cards={toCards(favs.map((f) => f.cardId))} onSelect={setSelected} /> : <Empty text="Sin favoritos todavía." />)}
-      {sub === 'wishlist' && (wishes?.length ? <CardGrid cards={toCards(wishes.map((f) => f.cardId))} onSelect={setSelected} /> : <Empty text="Tu lista de deseos está vacía." />)}
+      {sub === 'wishlist' && (wishes?.length ? (() => {
+        const cards = toCards(wishes.map((f) => f.cardId))
+        const total = cards.reduce((a, c) => a + (c.price ?? 0), 0)
+        return (
+          <>
+            <p className="mt-3 text-center text-sm text-white/60">{cards.length} cartas · total estimado <b className="text-gold">${total.toFixed(2)} USD</b> <span className="text-white/30">(TCGplayer)</span></p>
+            <CardGrid cards={cards} onSelect={setSelected} />
+          </>
+        )
+      })() : <Empty text="Tu lista de deseos está vacía." />)}
 
       {sub === 'tags' && (
         <>
@@ -49,7 +58,7 @@ export default function CollectionView() {
               const on = tagId === t.id
               return (
                 <span key={t.id} className="inline-flex items-center overflow-hidden rounded-full border text-sm"
-                  style={{ borderColor: t.color, background: on ? t.color : 'transparent', color: on ? '#0b0714' : t.color }}>
+                  style={{ borderColor: t.color, background: on ? t.color : 'transparent', color: on ? '#0e0720' : t.color }}>
                   <button className="px-3 py-1" onClick={() => setTagId(on ? null : t.id)}>{t.name} · {n}</button>
                   <button className="px-2 py-1 opacity-60" aria-label={`Eliminar ${t.name}`}
                     onClick={() => { if (confirm(`¿Eliminar el tag “${t.name}”?`)) { deleteTag(t.id); if (on) setTagId(null) } }}>×</button>
