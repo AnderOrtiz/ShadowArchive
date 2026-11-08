@@ -1,21 +1,15 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { buildIndex, loadCatalog, type Card } from '../lib/cards'
+import { useDeferredValue, useMemo, useState } from 'react'
+import { useCatalog } from '../lib/catalog'
+import type { Card } from '../lib/cards'
 import CardModal from './CardModal'
+import CardGrid from './CardGrid'
 
 export default function SearchView() {
-  const [cards, setCards] = useState<Card[] | null>(null)
-  const [status, setStatus] = useState('Cargando…')
-  const [error, setError] = useState<string | null>(null)
+  const catalog = useCatalog()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Card | null>(null)
   const deferred = useDeferredValue(query)
-
-  useEffect(() => {
-    loadCatalog(setStatus).then(setCards).catch((e: Error) => setError(e.message))
-  }, [])
-
-  const index = useMemo(() => (cards ? buildIndex(cards) : null), [cards])
-  const results = useMemo(() => index?.search(deferred) ?? [], [index, deferred])
+  const results = useMemo(() => catalog.search(deferred), [catalog, deferred])
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
@@ -27,21 +21,13 @@ export default function SearchView() {
         placeholder="Buscar por nombre o texto de la carta…"
         className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-base outline-none focus:border-accent"
       />
-      {error && <p className="mt-6 text-center text-red-400">{error}</p>}
-      {!cards && !error && <p className="mt-6 text-center text-white/60">{status}</p>}
-      {cards && !query.trim() && (
-        <p className="mt-6 text-center text-sm text-white/40">{cards.length.toLocaleString()} cartas listas. Escribe para buscar.</p>
+      {catalog.error && <p className="mt-6 text-center text-red-400">{catalog.error}</p>}
+      {!catalog.ready && !catalog.error && <p className="mt-6 text-center text-white/60">{catalog.status}</p>}
+      {catalog.ready && !query.trim() && (
+        <p className="mt-6 text-center text-sm text-white/40">{catalog.total.toLocaleString()} cartas listas. Escribe para buscar.</p>
       )}
-      {cards && query.trim() && results.length === 0 && (
-        <p className="mt-6 text-center text-white/50">Sin resultados.</p>
-      )}
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-        {results.map((c) => (
-          <button key={c.id} onClick={() => setSelected(c)} className="overflow-hidden rounded-lg bg-panel active:scale-95">
-            <img src={c.thumb} alt={c.name} loading="lazy" className="aspect-[59/86] w-full object-cover" />
-          </button>
-        ))}
-      </div>
+      {catalog.ready && query.trim() && results.length === 0 && <p className="mt-6 text-center text-white/50">Sin resultados.</p>}
+      <CardGrid cards={results} onSelect={setSelected} />
       {selected && <CardModal card={selected} onClose={() => setSelected(null)} />}
     </div>
   )

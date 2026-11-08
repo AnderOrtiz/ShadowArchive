@@ -1,4 +1,4 @@
-import Dexie from 'dexie'
+import { db } from './db'
 import MiniSearch from 'minisearch'
 
 export interface Card {
@@ -15,9 +15,6 @@ export interface Card {
   img: string
   thumb: string
 }
-
-const db = new Dexie('shadow-archive') as Dexie & { cards: Dexie.Table<Card, number> }
-db.version(1).stores({ cards: 'id' })
 
 const API = 'https://db.ygoprodeck.com/api/v7/cardinfo.php'
 
