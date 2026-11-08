@@ -4,11 +4,16 @@ import type { Card } from './cards'
 export type Zone = 'main' | 'extra' | 'side'
 export type ListName = 'favorite' | 'wishlist'
 
-export interface Deck { id: string; name: string; createdAt: number }
-export interface DeckCard { deckId: string; cardId: number; zone: Zone; qty: number }
-export interface Tag { id: string; name: string; color: string }
-export interface CardTag { cardId: number; tagId: string }
-export interface ListEntry { cardId: number; list: ListName }
+// updatedAt (ms) se estampa solo mediante hooks y sirve para la sincronización last-write-wins.
+export interface Deck { id: string; name: string; createdAt: number; updatedAt?: number }
+export interface DeckCard { deckId: string; cardId: number; zone: Zone; qty: number; updatedAt?: number }
+export interface Tag { id: string; name: string; color: string; updatedAt?: number }
+export interface CardTag { cardId: number; tagId: string; updatedAt?: number }
+export interface ListEntry { cardId: number; list: ListName; updatedAt?: number }
+export interface Tombstone { t: string; k: string; ts: number; obj: Record<string, unknown> }
+export interface Meta { key: string; value: unknown }
+
+export const SYNCED_TABLES = ['decks', 'deckCards', 'tags', 'cardTags', 'lists'] as const
 
 export const db = new Dexie('shadow-archive') as Dexie & {
   cards: Dexie.Table<Card, number>
@@ -17,6 +22,8 @@ export const db = new Dexie('shadow-archive') as Dexie & {
   tags: Dexie.Table<Tag, string>
   cardTags: Dexie.Table<CardTag, [number, string]>
   lists: Dexie.Table<ListEntry, [number, ListName]>
+  tombstones: Dexie.Table<Tombstone, [string, string]>
+  meta: Dexie.Table<Meta, string>
 }
 
 db.version(1).stores({ cards: 'id' })
@@ -28,6 +35,56 @@ db.version(2).stores({
   cardTags: '[cardId+tagId],cardId,tagId',
   lists: '[cardId+list],list',
 })
+
+db.version(3)
+  .stores({
+    cards: 'id',
+    decks: 'id',
+    deckCards: '[deckId+cardId+zone],deckId',
+    tags: 'id',
+    cardTags: '[cardId+tagId],cardId,tagId',
+    lists: '[cardId+list],list',
+    tombstones: '[t+k]',
+    meta: 'key',
+  })
+  .upgrade(async (tx) => {
+    const now = Date.now()
+    for (const name of SYNCED_TABLES) {
+      await tx.table(name).toCollection().modify((r: { updatedAt?: number }) => { r.updatedAt ??= now })
+    }
+  })
+
+// --- Hooks de sincronización -------------------------------------------------
+// Estampan updatedAt y guardan una "lápida" al borrar, para poder propagar borrados.
+let applyingRemote = false
+export const runAsRemote = async <T>(fn: () => Promise<T>): Promise<T> => {
+  applyingRemote = true
+  try { return await fn() } finally { applyingRemote = false }
+}
+let onLocalChange: () => void = () => {}
+export const setOnLocalChange = (fn: () => void) => { onLocalChange = fn }
+
+export const tombKey = (key: unknown) => JSON.stringify(key)
+
+for (const name of SYNCED_TABLES) {
+  const table = db.table(name)
+  table.hook('creating', (_pk, obj) => {
+    if (obj.updatedAt === undefined) obj.updatedAt = Date.now()
+    if (!applyingRemote) onLocalChange()
+  })
+  table.hook('updating', () => {
+    if (applyingRemote) return undefined
+    onLocalChange()
+    return { updatedAt: Date.now() }
+  })
+  table.hook('deleting', (pk, obj, trans) => {
+    if (applyingRemote) return
+    // La transacción original no incluye 'tombstones', así que se escribe al confirmarse el borrado.
+    const tomb: Tombstone = { t: name, k: tombKey(pk), ts: Date.now(), obj: { ...obj } }
+    trans.on('complete', () => { void db.tombstones.put(tomb) })
+    onLocalChange()
+  })
+}
 
 export const TAG_COLORS = ['#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#60a5fa', '#fb923c']
 

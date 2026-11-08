@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Card } from '../lib/cards'
+import { useAuth } from '../lib/auth'
 import { addToDeck, createDeck, createTag, db, toggleCardTag, toggleList } from '../lib/db'
 
 type View = 'card' | 'decks' | 'tags'
 
 export default function CardModal({ card, onClose }: { card: Card; onClose: () => void }) {
+  const { user, requestLogin } = useAuth()
   const [menu, setMenu] = useState(false)
   const [more, setMore] = useState(false)
   const [view, setView] = useState<View>('card')
@@ -36,10 +38,15 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
                 <button aria-label="Menú" onClick={(e) => { e.stopPropagation(); setMenu((m) => !m) }} className="rounded-lg px-3 py-1 text-xl hover:bg-white/10">⋮</button>
                 {menu && (
                   <div className="absolute right-0 z-10 w-60 overflow-hidden rounded-xl border border-edge bg-void text-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    {!user && (
+                      <button className={`${item} text-accent`} onClick={() => { onClose(); requestLogin() }}>🔒 Inicia sesión para guardar</button>
+                    )}
+                    {user && <>
                     <button className={item} onClick={() => { setView('decks'); setMenu(false) }}>Agregar / crear deck</button>
                     <button className={item} onClick={() => { toggleList(card.id, 'favorite'); setMenu(false) }}>{isFav ? '★ Quitar de favoritos' : '☆ Favoritos'}</button>
                     <button className={item} onClick={() => { toggleList(card.id, 'wishlist'); setMenu(false) }}>{isWish ? '🎯 Quitar de deseos' : '🎯 Lista de deseos'}</button>
                     <button className={item} onClick={() => { setView('tags'); setMenu(false) }}>🏷️ Tags</button>
+                    </>}
                     <button className={item} onClick={() => { setMore(true); setMenu(false) }}>Ver más</button>
                   </div>
                 )}

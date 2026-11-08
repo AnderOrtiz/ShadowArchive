@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { CatalogProvider } from './lib/catalog'
+import { AuthProvider } from './lib/auth'
+import LoginGate from './components/LoginGate'
+import SyncBar from './components/SyncBar'
 import SearchView from './components/SearchView'
 import DecksView from './components/DecksView'
 import CollectionView from './components/CollectionView'
@@ -17,11 +20,13 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('search')
   return (
     <CatalogProvider>
+      <AuthProvider onRequestLogin={() => setTab('decks')}>
       <div className="flex h-full flex-col">
+        <SyncBar />
         <main className="min-h-0 flex-1 overflow-y-auto">
           {tab === 'search' && <SearchView />}
-          {tab === 'decks' && <DecksView />}
-          {tab === 'collection' && <CollectionView />}
+          {tab === 'decks' && <LoginGate title="Mis decks"><DecksView /></LoginGate>}
+          {tab === 'collection' && <LoginGate title="Colección"><CollectionView /></LoginGate>}
           {tab === 'duel' && <DuelView />}
         </main>
         <nav className="grid grid-cols-4 border-t border-edge bg-panel pb-[env(safe-area-inset-bottom)]">
@@ -32,6 +37,7 @@ export default function App() {
           ))}
         </nav>
       </div>
+      </AuthProvider>
     </CatalogProvider>
   )
 }
