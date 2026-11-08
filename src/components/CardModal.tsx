@@ -49,7 +49,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
                 </button>
                 <button aria-label="Menú" onClick={(e) => { e.stopPropagation(); setMenu((m) => !m) }} className="rounded-lg px-3 py-1 text-xl hover:bg-white/10">⋮</button>
                 {menu && (
-                  <div className="absolute right-0 z-10 w-60 overflow-hidden rounded-xl border border-edge bg-void text-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="absolute right-0 top-full z-10 mt-1 w-60 overflow-hidden rounded-xl border border-edge bg-void text-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
                     {!user && (
                       <button className={`${item} text-accent`} onClick={() => { onClose(); requestLogin() }}>🔒 Inicia sesión para guardar</button>
                     )}
