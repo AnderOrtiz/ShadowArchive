@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0b0714;
+  --color-panel: #161027;
+  --color-edge: #2a2145;
+  --color-accent: #a78bfa;
+  --color-gold: #fbbf24;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--color-void);
+  color: #e7e2f5;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
