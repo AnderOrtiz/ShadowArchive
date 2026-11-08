@@ -20,8 +20,10 @@ export function parseYdk(text: string): Record<Zone, number[]> {
 }
 
 /** Crea un deck desde un .ydk. Devuelve su id y los ids que no existen en el catálogo. */
-export async function importYdk(name: string, text: string, known: Set<number>) {
-  const parsed = parseYdk(text)
+export const importYdk = (name: string, text: string, known: Set<number>) => importParsed(name, parseYdk(text), known)
+
+/** Crea un deck desde zonas ya leídas (de un .ydk o de un enlace YDKE). */
+export async function importParsed(name: string, parsed: Record<Zone, number[]>, known: Set<number>) {
   const counts = new Map<string, DeckCard>()
   const unknown = new Set<number>()
   const id = await createDeck(name)

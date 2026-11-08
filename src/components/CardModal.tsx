@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Card } from '../lib/cards'
 import { useAuth } from '../lib/auth'
+import RelatedCards from './RelatedCards'
 import { addToDeck, createDeck, createTag, db, setNote, toggleCardTag, toggleList } from '../lib/db'
 
 const BAN_LABEL: Record<string, string> = { Banned: '🚫 Prohibida (TCG)', Limited: 'Limitada a 1 (TCG)', 'Semi-Limited': 'Semi-limitada a 2 (TCG)' }
 
-type View = 'card' | 'decks' | 'tags'
+type View = 'card' | 'decks' | 'tags' | 'related'
 
 export default function CardModal({ card, onClose }: { card: Card; onClose: () => void }) {
   const { user, requestLogin } = useAuth()
@@ -15,6 +16,7 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
   const [view, setView] = useState<View>('card')
   const [newName, setNewName] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [openRelated, setOpenRelated] = useState<Card | null>(null)
 
   const decks = useLiveQuery(() => db.decks.toArray().then((d) => d.sort((a, b) => b.createdAt - a.createdAt)), [])
   const tags = useLiveQuery(() => db.tags.toArray(), [])
@@ -143,12 +145,25 @@ export default function CardModal({ card, onClose }: { card: Card; onClose: () =
           </>
         )}
 
+        {view === 'related' && <RelatedCards card={card} onSelect={setOpenRelated} />}
+
         {toast && <p className="mt-3 rounded-lg bg-emerald-500/20 py-2 text-center text-sm text-emerald-300">{toast}</p>}
+        {view === 'card' && (
+          <button onClick={() => setView('related')} className="mt-4 w-full rounded-xl border border-accent/60 py-3 font-medium text-accent hover:bg-accent/10">
+            Cartas relacionadas
+          </button>
+        )}
         <button onClick={view === 'card' ? onClose : () => { setView('card'); setNewName('') }}
           className="mt-4 w-full rounded-xl bg-accent/20 py-3 font-medium text-accent">
           {view === 'card' ? 'Cerrar' : 'Volver'}
         </button>
       </div>
+      {openRelated && (
+        // Evita que un clic en el fondo de la carta relacionada cierre también la carta de abajo.
+        <div onClick={(e) => e.stopPropagation()}>
+          <CardModal card={openRelated} onClose={() => setOpenRelated(null)} />
+        </div>
+      )}
     </div>
   )
 }

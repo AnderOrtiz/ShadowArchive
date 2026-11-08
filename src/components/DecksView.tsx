@@ -5,7 +5,9 @@ import type { Card } from '../lib/cards'
 import { changeQty, createDeck, db, deleteDeck, moveToSide, type DeckCard, type Zone } from '../lib/db'
 import CardModal from './CardModal'
 import { StatsPanel, HandSimulator } from './DeckTools'
-import { importYdk, toYdk } from '../lib/ydk'
+import { importParsed, importYdk, toYdk } from '../lib/ydk'
+import { parseYdke, toYdke } from '../lib/ydke'
+import TransferGuide from './TransferGuide'
 
 const ZONES: [Zone, string][] = [['main', 'Main Deck'], ['extra', 'Extra Deck'], ['side', 'Side Deck']]
 
@@ -18,6 +20,8 @@ function DeckList({ onOpen }: { onOpen: (id: string) => void }) {
   const catalog = useCatalog()
   const [name, setName] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
+  const [ydke, setYdke] = useState('')
+  const [guide, setGuide] = useState(false)
   const decks = useLiveQuery(() => db.decks.toArray().then((d) => d.sort((a, b) => b.createdAt - a.createdAt)), [])
   const counts = useLiveQuery(async () => {
     const all = await db.deckCards.toArray()
@@ -45,6 +49,23 @@ function DeckList({ onOpen }: { onOpen: (id: string) => void }) {
           onOpen(r.id)
         }} />
       </label>
+      <form className="mb-2 flex gap-2" onSubmit={async (e) => {
+        e.preventDefault()
+        try {
+          const r = await importParsed('Deck importado', parseYdke(ydke), new Set(catalog.byId.keys()))
+          setYdke('')
+          setMsg(r.unknown.length ? `Importado. ${r.unknown.length} código(s) no están en el catálogo.` : `Importado (${r.total} cartas).`)
+          onOpen(r.id)
+        } catch (err) { setMsg(`⚠️ ${(err as Error).message}`) }
+      }}>
+        <input value={ydke} onChange={(e) => setYdke(e.target.value)} placeholder="Importar enlace YDKE (ydke://…)"
+          className="min-w-0 flex-1 rounded-xl border border-edge bg-panel px-4 py-2 text-sm outline-none focus:border-accent" />
+        <button disabled={!ydke.trim()} className="rounded-xl bg-accent/20 px-4 text-accent disabled:opacity-40">Importar</button>
+      </form>
+      <button onClick={() => setGuide(true)} className="mb-4 w-full text-center text-sm text-accent/80 underline underline-offset-2">
+        ¿Cómo paso decks a Master Duel o Neuron?
+      </button>
+      {guide && <TransferGuide onClose={() => setGuide(false)} />}
       {msg && <p className="mb-3 text-center text-sm text-emerald-300">{msg}</p>}
       {decks?.length === 0 && <p className="text-center text-sm text-white/40">Aún no tienes decks. Crea uno aquí o desde el menú ⋮ de una carta.</p>}
       <div className="space-y-2">
@@ -68,6 +89,7 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [showStats, setShowStats] = useState(false)
   const [showHand, setShowHand] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const { filtered, totals, warnings } = useMemo(() => {
     const totals: Record<Zone, number> = { main: 0, extra: 0, side: 0 }
@@ -128,7 +150,7 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <div className="mb-3 flex gap-3 text-sm text-white/60">
         {ZONES.map(([z, l]) => <span key={z}>{l.split(' ')[0]}: <b className="text-white">{totals[z]}</b></span>)}
       </div>
-      <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
+      <div className="mb-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <button onClick={() => setShowStats((v) => !v)} className={`rounded-lg py-2 ${showStats ? 'bg-accent/30 text-accent' : 'bg-white/10'}`}>📊 Estadísticas</button>
         <button onClick={() => setShowHand(true)} className="rounded-lg bg-white/10 py-2">🖐 Mano</button>
         <button onClick={() => {
@@ -137,6 +159,11 @@ function DeckDetail({ id, onBack }: { id: string; onBack: () => void }) {
           a.href = URL.createObjectURL(blob); a.download = `${deck.name.replace(/[^\w\- ]+/g, '') || 'deck'}.ydk`; a.click()
           URL.revokeObjectURL(a.href)
         }} className="rounded-lg bg-white/10 py-2">⬇ .ydk</button>
+        <button onClick={async () => {
+          const text = toYdke(rows ?? [])
+          try { await navigator.clipboard.writeText(text) } catch { window.prompt('Copia el enlace YDKE:', text) }
+          setCopied(true); setTimeout(() => setCopied(false), 1800)
+        }} className={`rounded-lg py-2 ${copied ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10'}`}>{copied ? 'Copiado' : 'Copiar YDKE'}</button>
       </div>
       {showStats && <StatsPanel rows={rows ?? []} byId={catalog.byId} />}
       {warnings.length > 0 && (
